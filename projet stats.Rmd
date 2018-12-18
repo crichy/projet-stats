@@ -1,0 +1,68 @@
+---
+title: "projet stats"
+author: "Célia Richy"
+---
+
+
+```{r}
+results_empty <- readr::read_csv("results_vide.csv")
+```
+
+
+
+```{r}
+results_2911$genre_grammatical_c <- ifelse(results_2911$genre_grammatical == "le", 1, 0)
+summary(lm(score ~ genre_grammatical_c + 1, data=results_2911))
+ggplot2::ggplot(results_2911, ggplot2::aes(x=score)) +
+  ggplot2::geom_histogram() +
+  ggplot2::facet_grid(genre_grammatical_c ~ .)
+```
+
+```{r}
+statistics <- NULL
+for (i in 1:100) {
+  results_fake <- results_2911
+  results_fake$score[results_fake$genre_grammatical == "la"] <- 
+    sample(results_fake$score[results_fake$genre_grammatical == "la"], replace = TRUE)
+  results_fake$score[results_fake$genre_grammatical == "le"] <-
+    sample(results_fake$score[results_fake$genre_grammatical == "la"], replace = TRUE)
+  statistics <- c(statistics,
+                  summary(lm(score ~ genre_grammatical_c, data=results_fake))$coefficients[2,3])
+                  #coef(lm(score ~ genre_grammatical_c, data=results_fake))["genre_grammatical_c"])
+}
+hist(statistics)
+```
+
+
+
+```{r}
+results_2911_le <- dplyr::filter(results_2911, genre_grammatical == "le")
+results_2911_le$score_miserky_ctr <- results_2911_le$score_miserky - 0.5
+summary(lm(score ~ 1, data=results_2911_le))
+m_1 <- lm(score ~ 1, data=results_2911_le)
+summary(m_1)
+confint(m_2, "(Intercept)")
+
+indices <- sample(1:nrow(results_2911_le),
+                  nrow(results_2911_le),
+                  replace=TRUE)
+results_resampled <- results_2911_le[indices,]
+summary(lm(score ~ 1, data=results_resampled))
+
+m_2 <- lm(score ~ score_miserky_ctr, data=results_2911_le)
+summary(m_2)
+car::linearHypothesis(m_2, "(Intercept) + 0.4*score_miserky_ctr = 0.3")
+ggplot2::ggplot(results_2911_le, ggplot2::aes(x=score_miserky_ctr, y=score)) +
+  ggplot2::geom_point() +
+  ggplot2::geom_smooth(method="lm")
+```
+
+```{r}
+results_0 <- results_empty
+results_0$score <- 0
+
+
+results_flat <- results_empty
+#results_flat$score <- generate_flat_scores(results_flat)
+```
+

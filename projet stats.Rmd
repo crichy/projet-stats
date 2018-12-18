@@ -1,68 +1,121 @@
 ---
-title: "projet stats"
+title: "Projet statistiques M2"
 author: "Célia Richy"
 ---
 
+#### Introduction.
+Ce projet a pour but de vérifier à quel point un modèle linéaire appliqué à mon set de données simulées est bon, ou peut être mauvais. Les données simulées représentent les différentes possibilités de résultats de ma véritable expérience.
+
+##### Contexte de l'expérience: 
+Les participants lisent des phrases contenant des noms de type common gender (nom dont la forme ne varie pas en genre, e.g., "journaliste") associés au déterminant défini singulier masculin ou féminin. Tous les noms utilisés sont associés à des scores pré-établis de stéréotypicité. Pour chaque phrase, ils doivent évaluer la probabilité qu'il s'agisse d'un homme ou d'une femme. Les scores obtenus sont entre 0 et 1, 0 signifiant qu'il s'agit d'un homme et 1 d'une femme. La condition de contrôle est le déterminant féminin LA, et la variable observée correspond au genre grammatical masculin.
+
+Pour chaque simulation de données, les scores pour les noms associés à LA doivent toujours être au dessus de 0.5. Pour les noms associés à LE, nous allons avoir deux types de données:
+- les scores obtenus sont entre 0 et 0.49 (effet du genre grammatical)
+- les scores obtenus sont les mêmes que les scores de stéréotypicité (donc entre 0 et 1).
+
+#### Premier dataset.
+
+Le premier dataset "results_vide" utilise la même structure que le dataset de mes vraies données, seulement il est vide au niveau des scores donnés par les participants, justement pour pouvoir l'utiliser pour insérer des données simulées lors de l'analyse. 
+Les données pour le genre grammatical masculin ici correspondent à l'hypothèse selon laquelle le genre grammatical a un effet sur l'interprétation.
 
 ```{r}
-results_empty <- readr::read_csv("results_vide.csv")
+resultats_vide <- readr::read_csv("results_vide.csv")
+
+#on filtre le dataset afin de pouvoir simuler des données différentes pour le et la.
+results_le <- dplyr::filter(resultats_vide, genre_grammatical == "le")
+#pour avoir une limite correcte dans notre sample aléatoire, on donne la valeur de x en avance.
+x <- (0:49)/100
+results_le$score <- sample(x, nrow(results_le), replace = TRUE)
+
+# On procède de la même manière pour LA
+results_la <- dplyr::filter(resultats_vide, genre_grammatical == "la")
+#pour avoir une limite correcte dans notre sample aléatoire, on donne la valeur de x en avance.
+x <- (60:100)/100
+results_la$score <- sample(x, nrow(results_le), replace = TRUE)
+
+#on combine les deux datasets, c'est à dire qu'on combine les deux variables de genre grammatical
+fake_results_1 <- rbind(results_la, results_le)
+```
+
+
+
+#### Second dataset.
+Le second dataset est construit en suivant la même méthode que pour le premier. On reprend la structure du dataset original, et on remplit les scores selon la seconde hypothèse. Ici, le genre grammatical masculin n'a aucun effet sur l'interprétation du nom, et donc les scores pour LE ici sont identiques aux scores donnés par Miserky et al. (2014).
+
+```{r}
+resultats_vide <- readr::read_csv("results_vide.csv")
+
+#on filtre le dataset afin de pouvoir simuler des données différentes pour le et la.
+results_le <- dplyr::filter(resultats_vide, genre_grammatical == "le")
+
+#les scores pour le genre grammatical masculin correspondent exactement aux scores de Miserky et al.
+results_le$score <- results_le$score_miserky
+
+
+results_la <- dplyr::filter(resultats_vide, genre_grammatical == "la")
+#pour avoir une limite correcte dans notre sample aléatoire, on donne la valeur de x en avance.
+x <- (60:100)/100
+results_la$score <- sample(x, nrow(results_le), replace = TRUE)
+
+#on combine les deux datasets, c'est à dire qu'on combine les deux variables de genre grammatical
+fake_results_2 <- rbind(results_la, results_le)
 ```
 
 
 
 ```{r}
-results_2911$genre_grammatical_c <- ifelse(results_2911$genre_grammatical == "le", 1, 0)
-summary(lm(score ~ genre_grammatical_c + 1, data=results_2911))
-ggplot2::ggplot(results_2911, ggplot2::aes(x=score)) +
-  ggplot2::geom_histogram() +
-  ggplot2::facet_grid(genre_grammatical_c ~ .)
+#results_2911$genre_grammatical_c <- ifelse(results_2911$genre_grammatical == "le", 1, 0)
+#summary(lm(score ~ genre_grammatical_c + 1, data=results_2911))
+#ggplot2::ggplot(results_2911, ggplot2::aes(x=score)) +
+ # ggplot2::geom_histogram() +
+  #ggplot2::facet_grid(genre_grammatical_c ~ .)
 ```
 
 ```{r}
-statistics <- NULL
-for (i in 1:100) {
-  results_fake <- results_2911
-  results_fake$score[results_fake$genre_grammatical == "la"] <- 
-    sample(results_fake$score[results_fake$genre_grammatical == "la"], replace = TRUE)
-  results_fake$score[results_fake$genre_grammatical == "le"] <-
-    sample(results_fake$score[results_fake$genre_grammatical == "la"], replace = TRUE)
-  statistics <- c(statistics,
-                  summary(lm(score ~ genre_grammatical_c, data=results_fake))$coefficients[2,3])
+#statistics <- NULL
+#for (i in 1:100) {
+ # results_fake <- results_2911
+  #results_fake$score[results_fake$genre_grammatical == "la"] <- 
+   # sample(results_fake$score[results_fake$genre_grammatical == "la"], replace = TRUE)
+  #results_fake$score[results_fake$genre_grammatical == "le"] <-
+   # sample(results_fake$score[results_fake$genre_grammatical == "la"], replace = TRUE)
+  #statistics <- c(statistics,
+   #               summary(lm(score ~ genre_grammatical_c, data=results_fake))$coefficients[2,3])
                   #coef(lm(score ~ genre_grammatical_c, data=results_fake))["genre_grammatical_c"])
-}
-hist(statistics)
+#}
+#hist(statistics)
 ```
 
 
 
 ```{r}
-results_2911_le <- dplyr::filter(results_2911, genre_grammatical == "le")
-results_2911_le$score_miserky_ctr <- results_2911_le$score_miserky - 0.5
-summary(lm(score ~ 1, data=results_2911_le))
-m_1 <- lm(score ~ 1, data=results_2911_le)
-summary(m_1)
-confint(m_2, "(Intercept)")
+#results_2911_le <- dplyr::filter(results_2911, genre_grammatical == "le")
+#results_2911_le$score_miserky_ctr <- results_2911_le$score_miserky - 0.5
+#summary(lm(score ~ 1, data=results_2911_le))
+#m_1 <- lm(score ~ 1, data=results_2911_le)
+#summary(m_1)
+#confint(m_2, "(Intercept)")
 
-indices <- sample(1:nrow(results_2911_le),
-                  nrow(results_2911_le),
-                  replace=TRUE)
-results_resampled <- results_2911_le[indices,]
-summary(lm(score ~ 1, data=results_resampled))
+#indices <- sample(1:nrow(results_2911_le),
+ #                 nrow(results_2911_le),
+  #                replace=TRUE)
+#results_resampled <- results_2911_le[indices,]
+#summary(lm(score ~ 1, data=results_resampled))
 
-m_2 <- lm(score ~ score_miserky_ctr, data=results_2911_le)
-summary(m_2)
-car::linearHypothesis(m_2, "(Intercept) + 0.4*score_miserky_ctr = 0.3")
-ggplot2::ggplot(results_2911_le, ggplot2::aes(x=score_miserky_ctr, y=score)) +
-  ggplot2::geom_point() +
-  ggplot2::geom_smooth(method="lm")
+#m_2 <- lm(score ~ score_miserky_ctr, data=results_2911_le)
+#summary(m_2)
+#car::linearHypothesis(m_2, "(Intercept) + 0.4*score_miserky_ctr = 0.3")
+#ggplot2::ggplot(results_2911_le, ggplot2::aes(x=score_miserky_ctr, y=score)) +
+#  ggplot2::geom_point() +
+ # ggplot2::geom_smooth(method="lm")
 ```
 
 ```{r}
-results_0 <- results_empty
-results_0$score <- 0
+#results_0 <- results_empty
+#results_0$score <- 0
 
 
-results_flat <- results_empty
+#results_flat <- results_empty
 #results_flat$score <- generate_flat_scores(results_flat)
 ```
 

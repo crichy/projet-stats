@@ -35,6 +35,8 @@ results_la$score <- sample(x, nrow(results_le), replace = TRUE)
 
 #on combine les deux datasets, c'est à dire qu'on combine les deux variables de genre grammatical
 fake_results_1 <- rbind(results_la, results_le)
+
+fake_results_1 <- write.csv(fake_results_1, file = "fake_results_1.csv")
 ```
 
 
@@ -59,6 +61,8 @@ results_la$score <- sample(x, nrow(results_le), replace = TRUE)
 
 #on combine les deux datasets, c'est à dire qu'on combine les deux variables de genre grammatical
 fake_results_2 <- rbind(results_la, results_le)
+
+fake_results_2 <- write.csv(fake_results_2, file = "fake_results_2.csv")
 ```
 
 

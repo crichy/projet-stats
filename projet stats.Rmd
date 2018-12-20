@@ -3,17 +3,23 @@ title: "Projet statistiques M2"
 author: "Célia Richy"
 ---
 
-#### Introduction.
+#### 1. Introduction.
 Ce projet a pour but de vérifier à quel point un modèle linéaire appliqué à mon set de données simulées est bon, ou peut être mauvais. Les données simulées représentent les différentes possibilités de résultats de ma véritable expérience.
 
-##### Contexte de l'expérience: 
+##### 1.1 Contexte de l'expérience: 
 Les participants lisent des phrases contenant des noms de type common gender (nom dont la forme ne varie pas en genre, e.g., "journaliste") associés au déterminant défini singulier masculin ou féminin. Tous les noms utilisés sont associés à des scores pré-établis de stéréotypicité. Pour chaque phrase, ils doivent évaluer la probabilité qu'il s'agisse d'un homme ou d'une femme. Les scores obtenus sont entre 0 et 1, 0 signifiant qu'il s'agit d'un homme et 1 d'une femme. La condition de contrôle est le déterminant féminin LA, et la variable observée correspond au genre grammatical masculin.
 
-Pour chaque simulation de données, les scores pour les noms associés à LA doivent toujours être au dessus de 0.5. Pour les noms associés à LE, nous allons avoir deux types de données:
+Pour chaque simulation de données, les scores pour les noms associés à "LA" doivent toujours être au dessus de 0.5. Pour les noms associés à "LE", nous allons avoir trois types de données:
 - les scores obtenus sont entre 0 et 0.49 (effet du genre grammatical)
 - les scores obtenus sont les mêmes que les scores de stéréotypicité (donc entre 0 et 1).
+- les scores obtenus sont tous au dessus de 0.5, ce qui signifierait un problème dans le design de l'expérience
 
-#### Premier dataset.
+
+#### 2. Construction des datasets.
+
+NB: tous les datasets construits au départ sont aussi disponibles sur GIT.
+
+##### 2.1 Premier dataset.
 
 Le premier dataset "results_vide" utilise la même structure que le dataset de mes vraies données, seulement il est vide au niveau des scores donnés par les participants, justement pour pouvoir l'utiliser pour insérer des données simulées lors de l'analyse. 
 Les données pour le genre grammatical masculin ici correspondent à l'hypothèse selon laquelle le genre grammatical a un effet sur l'interprétation.
@@ -35,13 +41,16 @@ results_la$score <- sample(x, nrow(results_le), replace = TRUE)
 
 #on combine les deux datasets, c'est à dire qu'on combine les deux variables de genre grammatical
 fake_results_1 <- rbind(results_la, results_le)
-
-fake_results_1 <- write.csv(fake_results_1, file = "fake_results_1.csv")
 ```
 
+```{r}
+#répartition des données
+ggplot2::ggplot(fake_results_1, ggplot2::aes(score)) +
+  ggplot2::geom_bar() + 
+  ggplot2::facet_grid(genre_grammatical ~ .)
+```
 
-
-#### Second dataset.
+##### 2.2 Second dataset.
 Le second dataset est construit en suivant la même méthode que pour le premier. On reprend la structure du dataset original, et on remplit les scores selon la seconde hypothèse. Ici, le genre grammatical masculin n'a aucun effet sur l'interprétation du nom, et donc les scores pour LE ici sont identiques aux scores donnés par Miserky et al. (2014).
 
 ```{r}
@@ -61,20 +70,357 @@ results_la$score <- sample(x, nrow(results_le), replace = TRUE)
 
 #on combine les deux datasets, c'est à dire qu'on combine les deux variables de genre grammatical
 fake_results_2 <- rbind(results_la, results_le)
+```
+```{r}
+#répartition des données
+ggplot2::ggplot(fake_results_2, ggplot2::aes(score)) +
+  ggplot2::geom_bar() + 
+  ggplot2::facet_grid(genre_grammatical ~ .)
+```
 
-fake_results_2 <- write.csv(fake_results_2, file = "fake_results_2.csv")
+##### 2.3 Troisième dataset.
+Nous procédons toujours selon la même méthode, seulement ici les scores pour le genre grammatical masculin sont très inattendus: ils ne correspondent jamais à une interprétation "masculine" des noms de métier.
+
+```{r}
+resultats_vide <- readr::read_csv("results_vide.csv")
+
+#on filtre le dataset afin de pouvoir simuler des données différentes pour le et la.
+results_le <- dplyr::filter(resultats_vide, genre_grammatical == "le")
+
+#pour avoir une limite correcte dans notre sample aléatoire, on donne la valeur de x en avance.
+x <- (51:100)/100
+results_le$score <- sample(x, nrow(results_le), replace = TRUE)
+
+# On procède de la même manière pour LA
+results_la <- dplyr::filter(resultats_vide, genre_grammatical == "la")
+
+#pour avoir une limite correcte dans notre sample aléatoire, on donne la valeur de x en avance.
+x <- (60:100)/100
+results_la$score <- sample(x, nrow(results_le), replace = TRUE)
+
+#on combine les deux datasets, c'est à dire qu'on combine les deux variables de genre grammatical
+fake_results_3 <- rbind(results_la, results_le)
+```
+
+```{r}
+#répartition des données
+ggplot2::ggplot(fake_results_3, ggplot2::aes(score)) +
+  ggplot2::geom_bar() + 
+  ggplot2::facet_grid(genre_grammatical ~ .)
+```
+
+Dans quelle mesure un modèle linéaire vat-t-il faire de bonnes prédictions concernant nos données?
+
+#### 3. Modèle linéaire.
+
+Afin de pouvoir proposer une analyse critique du modèle linéaire appliqué à ces données, nous appliquons d'abord le modèle linéaire, avant de créer de nouveaux samples de ces données, et de regarder les différences prédites dans les coefficients en fonction de ces changements.
+
+Pour être certains de nos coefficients, nous commençons par re-coder le féminin et le masculin (féminin = 0, masculin = 1).
+
+```{r}
+#codage fake_dataset_1.
+fake_results_1$genre_gram_c <- ifelse(fake_results_1$genre_grammatical == "le", 1, 0)
+
+#codage fake_dataset_2.
+fake_results_2$genre_gram_c <- ifelse(fake_results_2$genre_grammatical == "le", 1, 0)
+
+#codage fake_dataset_3.
+fake_results_3$genre_gram_c <- ifelse(fake_results_3$genre_grammatical == "le", 1, 0)
+
+```
+
+
+##### 3.1 Modèle linéaire appliqué à fake_dataset_1.
+
+Quel est l'effet du genre grammatical masculin sur l'interprétation des noms de métiers comme référents à des hommes ou à des femmes?
+
+```{r}
+m1 <- lm(score ~ genre_gram_c, data = fake_results_1)
+summary(m1)
+```
+
+```{r}
+ggplot2::ggplot(fake_results_1, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+
+
+
+
+##### 3.2 Modèle linéaire appliqué à fake_dataset_2.
+```{r}
+m2 <- lm(score ~ genre_gram_c, data = fake_results_2)
+summary(m2)
+```
+```{r}
+ggplot2::ggplot(fake_results_2, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+##### 3.3 Modèle linéaire appliqué à fake_dataset_3.
+```{r}
+m3 <- lm(score ~ genre_gram_c, data = fake_results_3)
+summary(m3)
+```
+```{r}
+ggplot2::ggplot(fake_results_3, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+#### 4. Critique du modèle.
+
+Maintenant que nous avons les coefficients prédits par chaque modèle pour les différents datasets, nous allons pouvoir simuler des nouveaux jeux de données suivant les données que l'on a déjà construites. L'idée c'est de voir à quel point, même avec les données simulées via les données que l'on a établies précédemment, on retombe sur des coefficients similaires, ou pas. Pour ce faire, nous allons créer des samples de tailles différentes pour chaque fake_dataset, et comparer les résultats prédits.
+
+##### 4.1 Fake_dataset_1.
+
+```{r}
+#constituer un petit échantillon random de résultats
+for (i in 100) {
+  #on utilise les données des datasets, pour pouvoir comparer les coefficients
+  simulation_1 <- fake_results_1
+  # on rééchantillonne les données aléatoirement
+  simulation_1$score[simulation_1$genre_grammatical == "le"] <- 
+    #mais on utilise les scores des bons prédicteurs, soit "le" échantillonné pour "le"
+    sample(simulation_1$score[simulation_1$genre_grammatical == "le"], replace = TRUE)
+  #"la" échantillonné aléatoirement pour "la" seulement aussi
+  simulation_1$score[simulation_1$genre_grammatical == "la"] <- 
+    sample(simulation_1$score[simulation_1$genre_grammatical == "la"], replace = TRUE)
+  #on applique le modèle linéaire aux nouveaux échantillons
+  test_statistique <- lm(score ~ genre_gram_c, data = simulation_1)
+}
+summary(test_statistique)
 ```
 
 
 
 ```{r}
-#results_2911$genre_grammatical_c <- ifelse(results_2911$genre_grammatical == "le", 1, 0)
-#summary(lm(score ~ genre_grammatical_c + 1, data=results_2911))
-#ggplot2::ggplot(results_2911, ggplot2::aes(x=score)) +
- # ggplot2::geom_histogram() +
-  #ggplot2::facet_grid(genre_grammatical_c ~ .)
+ggplot2::ggplot(simulation_1, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
 ```
 
+```{r}
+for (i in 200) {
+  simulation_2 <- fake_results_1
+  simulation_2$score[simulation_2$genre_grammatical == "le"] <- 
+    sample(simulation_2$score[simulation_2$genre_grammatical == "le"], replace = TRUE)
+  simulation_2$score[simulation_2$genre_grammatical == "la"] <- 
+    sample(simulation_2$score[simulation_2$genre_grammatical == "la"], replace = TRUE)
+  test_statistique <- lm(score ~ genre_gram_c, data = simulation_2)
+}
+summary(test_statistique)
+```
+
+```{r}
+ggplot2::ggplot(simulation_2, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+```{r}
+#constituer un petit échantillon random de résultats
+for (i in 50) {
+  simulation_3 <- fake_results_1
+  simulation_3$score[simulation_2$genre_grammatical == "le"] <- 
+    sample(simulation_3$score[simulation_3$genre_grammatical == "le"], replace = TRUE)
+  simulation_3$score[simulation_3$genre_grammatical == "la"] <- 
+    sample(simulation_3$score[simulation_3$genre_grammatical == "la"], replace = TRUE)
+  test_statistique <- lm(score ~ genre_gram_c, data = simulation_3)
+}
+summary(test_statistique)
+```
+```{r}
+ggplot2::ggplot(simulation_3, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+```{r}
+#on essaie de rééchantillonné selon la taille originale du dataset
+for (i in nrow(fake_results_1)) {
+  simulation_4 <- fake_results_1
+  simulation_4$score[simulation_4$genre_grammatical == "le"] <- 
+    sample(simulation_4$score[simulation_4$genre_grammatical == "le"], replace = TRUE)
+  simulation_4$score[simulation_4$genre_grammatical == "la"] <- 
+    sample(simulation_4$score[simulation_3$genre_grammatical == "la"], replace = TRUE)
+  test_statistique <- lm(score ~ genre_gram_c, data = simulation_4)
+}
+summary(test_statistique)
+```
+```{r}
+ggplot2::ggplot(simulation_4, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+Dans le scénario où le genre grammatical masculin a un effet sur l'interprétation du nom de métier, le modèle linéaire prévoit toujours environ les mêmes coefficients. Ainsi, il semble que les prédictions soient correctes, et donc que ce modèle est bon.
+
+##### 4.2 Fake_dataset_2.
+
+Nous allons utiliser exactement la même méthode pour vérifier les fake_dataset 2 et 3.
+
+```{r}
+for (i in 100) {
+  simulation_5 <- fake_results_2
+  simulation_5$score[simulation_5$genre_grammatical == "le"] <- 
+    sample(simulation_5$score[simulation_5$genre_grammatical == "le"], replace = TRUE)
+  simulation_5$score[simulation_5$genre_grammatical == "la"] <- 
+    sample(simulation_5$score[simulation_5$genre_grammatical == "la"], replace = TRUE)
+  test_statistique <- lm(score ~ genre_gram_c, data = simulation_5)
+}
+summary(test_statistique)
+```
+
+
+
+```{r}
+ggplot2::ggplot(simulation_5, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+```{r}
+for (i in 200) {
+  simulation_6 <- fake_results_2
+  simulation_6$score[simulation_6$genre_grammatical == "le"] <- 
+    sample(simulation_6$score[simulation_6$genre_grammatical == "le"], replace = TRUE)
+  simulation_6$score[simulation_6$genre_grammatical == "la"] <- 
+    sample(simulation_6$score[simulation_6$genre_grammatical == "la"], replace = TRUE)
+  test_statistique <- lm(score ~ genre_gram_c, data = simulation_6)
+}
+summary(test_statistique)
+```
+
+```{r}
+ggplot2::ggplot(simulation_6, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+```{r}
+#constituer un petit échantillon random de résultats
+for (i in 50) {
+  simulation_7 <- fake_results_2
+  simulation_7$score[simulation_7$genre_grammatical == "le"] <- 
+    sample(simulation_7$score[simulation_7$genre_grammatical == "le"], replace = TRUE)
+  simulation_7$score[simulation_7$genre_grammatical == "la"] <- 
+    sample(simulation_7$score[simulation_7$genre_grammatical == "la"], replace = TRUE)
+  test_statistique <- lm(score ~ genre_gram_c, data = simulation_7)
+}
+summary(test_statistique)
+```
+```{r}
+ggplot2::ggplot(simulation_7, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+```{r}
+#on essaie de rééchantillonné selon la taille originale du dataset
+for (i in nrow(fake_results_2)) {
+  simulation_8 <- fake_results_2
+  simulation_8$score[simulation_8$genre_grammatical == "le"] <- 
+    sample(simulation_8$score[simulation_8$genre_grammatical == "le"], replace = TRUE)
+  simulation_8$score[simulation_8$genre_grammatical == "la"] <- 
+    sample(simulation_8$score[simulation_8$genre_grammatical == "la"], replace = TRUE)
+  test_statistique <- lm(score ~ genre_gram_c, data = simulation_8)
+}
+summary(test_statistique)
+```
+```{r}
+ggplot2::ggplot(simulation_8, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+
+##### 4.3 Fake_dataset_3.
+
+```{r}
+#constituer un petit échantillon random de résultats
+for (i in 100) {
+  #on utilise les données des datasets, pour pouvoir comparer les coefficients
+  simulation_9 <- fake_results_3
+  # on rééchantillonne les données aléatoirement
+  simulation_9$score[simulation_9$genre_grammatical == "le"] <- 
+    #mais on utilise les scores des bons prédicteurs, soit "le" échantillonné pour "le"
+    sample(simulation_9$score[simulation_9$genre_grammatical == "le"], replace = TRUE)
+  #"la" échantillonné aléatoirement pour "la" seulement aussi
+  simulation_9$score[simulation_9$genre_grammatical == "la"] <- 
+    sample(simulation_9$score[simulation_9$genre_grammatical == "la"], replace = TRUE)
+  #on applique le modèle linéaire aux nouveaux échantillons
+  test_statistique <- lm(score ~ genre_gram_c, data = simulation_9)
+}
+summary(test_statistique)
+```
+
+
+```{r}
+ggplot2::ggplot(simulation_9, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+```{r}
+for (i in 200) {
+  simulation_10 <- fake_results_3
+  simulation_10$score[simulation_10$genre_grammatical == "le"] <- 
+    sample(simulation_10$score[simulation_10$genre_grammatical == "le"], replace = TRUE)
+  simulation_10$score[simulation_10$genre_grammatical == "la"] <- 
+    sample(simulation_10$score[simulation_10$genre_grammatical == "la"], replace = TRUE)
+  test_statistique <- lm(score ~ genre_gram_c, data = simulation_10)
+}
+summary(test_statistique)
+```
+
+```{r}
+ggplot2::ggplot(simulation_10, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+```{r}
+#constituer un petit échantillon random de résultats
+for (i in 50) {
+  simulation_11 <- fake_results_3
+  simulation_11$score[simulation_11$genre_grammatical == "le"] <- 
+    sample(simulation_11$score[simulation_11$genre_grammatical == "le"], replace = TRUE)
+  simulation_11$score[simulation_11$genre_grammatical == "la"] <- 
+    sample(simulation_11$score[simulation_11$genre_grammatical == "la"], replace = TRUE)
+  test_statistique <- lm(score ~ genre_gram_c, data = simulation_11)
+}
+summary(test_statistique)
+```
+```{r}
+ggplot2::ggplot(simulation_11, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+```{r}
+#on essaie de rééchantillonné selon la taille originale du dataset
+for (i in nrow(fake_results_3)) {
+  simulation_12 <- fake_results_3
+  simulation_12$score[simulation_12$genre_grammatical == "le"] <- 
+    sample(simulation_12$score[simulation_12$genre_grammatical == "le"], replace = TRUE)
+  simulation_12$score[simulation_12$genre_grammatical == "la"] <- 
+    sample(simulation_12$score[simulation_12$genre_grammatical == "la"], replace = TRUE)
+  test_statistique <- lm(score ~ genre_gram_c, data = simulation_12)
+}
+summary(test_statistique)
+```
+```{r}
+ggplot2::ggplot(simulation_12, ggplot2::aes(x = score, y = genre_gram_c)) + 
+  ggplot2::geom_point() +
+  ggplot2::stat_smooth(method = "lm")
+```
+
+Nous avons ici simulé des données pour chaque type de dataset (c'est à dire selon les différents cas de résultats possibles), et finalement, nous retombons toujours sur les mêmes coefficients. Ceci est vrai pour toutes les simulations de données, que l'échantillon soit vraiment plus petit que le set simulé original (50 observations au lieu de 2000) ou de la même taille.
+De ce fait, quelque soit le scénario envisagé, le modèle linéaire semble prédire quelque chose correcte, puisque les coefficients sont toujours les mêmes.
 ```{r}
 #statistics <- NULL
 #for (i in 1:100) {
@@ -115,11 +461,9 @@ fake_results_2 <- write.csv(fake_results_2, file = "fake_results_2.csv")
 ```
 
 ```{r}
-#results_0 <- results_empty
-#results_0$score <- 0
-
-
-#results_flat <- results_empty
-#results_flat$score <- generate_flat_scores(results_flat)
+#results_2911$genre_grammatical_c <- ifelse(results_2911$genre_grammatical == "le", 1, 0)
+#summary(lm(score ~ genre_grammatical_c + 1, data=results_2911))
+#ggplot2::ggplot(results_2911, ggplot2::aes(x=score)) +
+ # ggplot2::geom_histogram() +
+  #ggplot2::facet_grid(genre_grammatical_c ~ .)
 ```
-
